@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<title>JOBO PRO AI Generator</title>
+<style>
+:root{--primary:#00ff88;}
+body{margin:0;background:#0f1116;color:#fff;font-family:Segoe UI,Arial}
+
+.header{
+height:64px;
+background:#141821;
+display:flex;
+align-items:center;
+justify-content:space-between;
+padding:0 24px;
+border-bottom:1px solid #2a2e36;
+}
+
+.logo{
+display:flex;
+align-items:center; gap:10px; font-size:22px; font-weight:800; color:var(--primary);
+}
+
+.logo span{
+width:36px;height:36px; border-radius:8px;
+background:linear-gradient(45deg,#00ff88,#00cc6a);
+display:flex;align-items:center;justify-content:center;
+color:#000;font-weight:900;
+}
+
+.auth button{
+margin-left:10px; padding:8px 14px; border:none; border-radius:6px; cursor:pointer; font-weight:600;
+}
+
+.google{background:#fff;color:#000}
+.facebook{background:#1877f2;color:#fff}
+
+.credits{
+background:rgba(0,255,136,0.1); color:var(--primary); padding:5px 15px; border-radius:20px; font-weight:bold; display:none;
+}
+
+.app{display:flex;height:calc(100vh - 64px)}
+
+.sidebar{
+width:280px; background:#1b1f27; padding:20px; border-right:1px solid #2a2e36; overflow:auto; display:flex; flex-direction:column; gap:12px;
+}
+
+.main{ flex:1; padding:20px; display:flex; flex-direction:column; gap:16px; }
+
+.tab{ padding:10px; background:#2a2e36; border-radius:6px; cursor:pointer; text-align:center; margin-bottom:6px; }
+.tab.active{background:var(--primary);color:#000}
+
+textarea,input{ width:100%; background:#111; border:1px solid #333; border-radius:6px; color:white; padding:10px; box-sizing: border-box; }
+textarea{height:90px}
+
+.upload{ border:1px dashed #555; padding:16px; text-align:center; border-radius:8px; display:none; }
+
+.preview{
+flex:1; background:#111; border-radius:14px; display:flex; align-items:center; justify-content:center; position:relative; border:1px solid #2a2e36; overflow: hidden;
+}
+
+.preview img{ max-width:100%; max-height:100%; border-radius:12px; }
+
+.loader { display: none; border: 4px solid #333; border-top: 4px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+.download{ position:absolute; bottom:12px; right:12px; background:var(--primary); border:none; padding:8px 14px; border-radius:6px; cursor:pointer; display:none; font-weight: bold; }
+
+.btn-generate{
+padding:16px; border:none; border-radius:12px; font-size:18px; font-weight:700; cursor:pointer;
+background:linear-gradient(45deg,#00ff88,#00cc6a); animation:glow 2s infinite alternate;
+}
+.btn-generate:disabled { opacity: 0.5; animation: none; cursor: not-allowed; }
+
+@keyframes glow{ from{box-shadow:0 0 12px #00ff88} to{box-shadow:0 0 45px #00ff88} }
+
+.ratio-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+.ratio-btn{ background:#2a2e36; padding:10px; border-radius:8px; display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; border:1px solid #333; font-size: 12px; }
+.ratio-btn.active{ border-color:var(--primary); color:var(--primary); box-shadow:0 0 12px rgba(0,255,136,.6); }
+.ratio-box{ border:2px solid #aaa;border-radius:4px;background:#000; }
+.square{width:20px;height:20px} .portrait{width:16px;height:22px} .tall{width:14px;height:24px} .phone{width:12px;height:26px} .landscape{width:26px;height:16px} .cinema{width:30px;height:14px} .classic{width:22px;height:18px}
+
+.footer{text-align:center;font-size:12px;opacity:.6}
+
+.modal{ display:none; position:fixed; top:0;left:0;width:100%;height:100%; background:rgba(0,0,0,0.8); justify-content:center; align-items:center; z-index:1000; }
+.modal-content{ background:#1b1f27; padding:40px; border-radius:15px; width:360px; text-align:center; border:1px solid #2a2e36; }
+.modal-content button{ width:100%; padding:12px; margin:10px 0; border:none; border-radius:6px; cursor:pointer; font-weight:700; }
+.paypal{background:#ffc439;color:#000} .card{background:#444;color:#fff} .modal-close{background:none;color:#888;margin-top:10px}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+    <div class="logo"><span>JP</span> JOBO PRO</div>
+    <div class="auth">
+        <div id="credits" class="credits">0 kredit</div>
+        <button class="google" onclick="login(false)">Google belépés</button>
+        <button class="facebook" onclick="login(false)">Facebook belépés</button>
+    </div>
+</div>
+
+<div class="app">
+    <div class="sidebar">
+        <div class="tab active" onclick="switchMode('txt',this)">Text ➜ Image</div>
+        <div class="tab" onclick="switchMode('img',this)">Image ➜ Image</div>
+        <div class="tab" onclick="switchMode('enhance',this)">Képjavító (Profi)</div>
+
+        <h3>Prompt</h3>
+        <textarea id="prompt" placeholder="Írd le a Nano Banana PRO-nak, mit alkosson..."></textarea>
+
+        <div id="upload" class="upload">
+            <input type="file" multiple id="fileInput" onchange="handleUpload(event)">
+            <p>Referencia képek feltöltése (max 5)</p>
+        </div>
+
+        <h3>Méretarány</h3>
+        <div class="ratio-grid">
+            <div class="ratio-btn active" onclick="setRatio(this,'1024x1024')"><div class="ratio-box square"></div><span>1:1</span></div>
+            <div class="ratio-btn" onclick="setRatio(this,'832x1216')"><div class="ratio-box portrait"></div><span>3:4</span></div>
+            <div class="ratio-btn" onclick="setRatio(this,'1216x832')"><div class="ratio-box classic"></div><span>4:3</span></div>
+            <div class="ratio-btn" onclick="setRatio(this,'720x1280')"><div class="ratio-box phone"></div><span>9:16</span></div>
+            <div class="ratio-btn" onclick="setRatio(this,'1280x720')"><div class="ratio-box landscape"></div><span>16:9</span></div>
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="preview" id="preview">
+            <div id="placeholderText">Kép előnézet</div>
+            <div class="loader" id="loader"></div>
+            <button class="download" id="downloadBtn" onclick="downloadImage()">Letöltés</button>
+        </div>
+        <button class="btn-generate" id="genBtn" onclick="generate()">NANO BANANA PRO GENERÁLÁS</button>
+        <div class="footer">Készítette: Balogh József | RunPod RTX 4090 Powered</div>
+    </div>
+</div>
+
+<div id="payModal" class="modal">
+    <div class="modal-content">
+        <h2>Fizetés</h2>
+        <p>Válassz fizetési módot:</p>
+        <button class="paypal" onclick="pay(30000)">PayPal 2.000 Ft → 30.000 kredit</button>
+        <button class="card" onclick="pay(30000)">Bankkártya 2.000 Ft → 30.000 kredit</button>
+        <button class="modal-close" onclick="closePayModal()">Mégse</button>
+    </div>
+</div>
+
+<script>
+const RUNPOD_URL = "https://842dqfbvvi78tl-8188.proxy.runpod.net"; // A TE PODOD
+
+let ratio="1024x1024";
+let credits=0;
+let isLogged=false;
+let mode='txt';
+let uploadedImages=[];
+
+// --- MODE SWITCH ---
+function switchMode(m,el){
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    el.classList.add('active');
+    mode=m;
+    document.getElementById("upload").style.display = (mode==='img'||mode==='enhance')?"block":"none";
+}
+
+// --- RATIO SELECT ---
+function setRatio(btn,r){
+    document.querySelectorAll('.ratio-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    ratio=r;
+}
+
+// --- FAKE LOGIN ---
+function login(paid){
+    isLogged=true;
+    credits = paid ? 30000 : 5; // 5 ingyen kredit regisztráció
+    const cd = document.getElementById("credits");
+    cd.innerText = credits+" kredit";
+    cd.style.display="inline-block";
+    alert("Üdv a JOBO PRO-ban! "+credits+" kredit jóváírva.");
+}
+
+// --- HANDLE UPLOAD ---
+function handleUpload(event){
+    uploadedImages = Array.from(event.target.files);
+}
+
+// --- GENERATE ---
+async function generate(){
+    if(!isLogged){alert("Kérlek jelentkezz be!"); return;}
+    if(credits<=0){openPayModal(); return;}
+
+    const promptText = document.getElementById("prompt").value;
+    if(!promptText) { alert("Írj be valamit!"); return; }
+
+    const genBtn = document.getElementById("genBtn");
+    const loader = document.getElementById("loader");
+    const placeholder = document.getElementById("placeholderText");
+    const downloadBtn = document.getElementById("downloadBtn");
+
+    // UI
+    genBtn.disabled = true;
+    genBtn.innerText = "KAPCSOLÓDÁS A GPU-HOZ...";
+    loader.style.display = "block";
+    placeholder.style.display = "none";
+    downloadBtn.style.display = "none";
+
+    const dimensions = ratio.split('x');
+
+    // --- RUNPOD WORKFLOW ---
+    let workflow = {
+        "prompt": {
+            "3": { "class_type": "KSampler", "inputs": { "seed": Math.floor(Math.random() * 1000000), "steps": 20, "cfg": 8, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["4",0], "positive": ["6",0], "negative": ["7",0], "latent_image": ["5",0] } },
+            "4": { "class_type": "CheckpointLoaderSimple", "inputs": { "ckpt_name": "flux1-dev.safetensors" } },
+            "5": { "class_type": "EmptyLatentImage", "inputs": { "width": parseInt(dimensions[0]), "height": parseInt(dimensions[1]), "batch_size": 1 } },
+            "6": { "class_type": "CLIPTextEncode", "inputs": { "text": promptText, "clip": ["4",1] } },
+            "7": { "class_type": "CLIPTextEncode", "inputs": { "text": "blurry, low quality, distorted", "clip": ["4",1] } },
+            "8": { "class_type": "VAEDecode", "inputs": { "samples": ["3",0], "vae": ["4",2] } },
+            "9": { "class_type": "SaveImage", "inputs": { "filename_prefix": "JOBO_PRO", "images": ["8",0] } }
+        }
+    };
+
+    // --- ADD UPLOADED IMAGE FOR ENHANCE ---
+    if(mode==='enhance' && uploadedImages.length>0){
+        const reader = new FileReader();
+        reader.onload = async function(e){
+            workflow.prompt["3"].inputs.latent_image = e.target.result;
+            await sendWorkflow(workflow);
+        }
+        reader.readAsDataURL(uploadedImages[0]);
+        return;
+    }
+
+    await sendWorkflow(workflow);
+}
+
+// --- SEND WORKFLOW ---
+async function sendWorkflow(workflow){
+    const genBtn = document.getElementById("genBtn");
+    const loader = document.getElementById("loader");
+    const placeholder = document.getElementById("placeholderText");
+    const downloadBtn = document.getElementById("downloadBtn");
+
+    try{
+        const response = await fetch(`${RUNPOD_URL}/prompt`, {
+            method: 'POST',
+            body: JSON.stringify(workflow)
+        });
+        const data = await response.json();
+        const promptId = data.prompt_id;
+
+        genBtn.innerText = "NANO BANANA GENERÁL... (RTX 4090)";
+
+        const checkStatus = setInterval(async () => {
+            const histRes = await fetch(`${RUNPOD_URL}/history/${promptId}`);
+            const history = await histRes.json();
+
+            if(history[promptId]){
+                clearInterval(checkStatus);
+                const imageName = history[promptId].outputs[9].images[0].filename;
+                const finalUrl = `${RUNPOD_URL}/view?filename=${imageName}`;
+
+                const img = document.createElement("img");
+                img.src = finalUrl;
+                const previewDiv = document.getElementById("preview");
+                previewDiv.innerHTML = "";
+                previewDiv.appendChild(img);
+                previewDiv.appendChild(downloadBtn);
+
+                downloadBtn.style.display="block";
+                genBtn.disabled = false;
+                genBtn.innerText = "GENERÁLÁS";
+                loader.style.display = "none";
+
+                credits--;
+                document.getElementById("credits").innerText = credits + " kredit";
+            }
+        }, 2000);
+
+    } catch(e){
+        alert("Szerver hiba! Ellenőrizd a RunPod podod.");
+        genBtn.disabled = false;
+        genBtn.innerText = "GENERÁLÁS";
+        loader.style.display = "none";
+    }
+}
+
+// --- DOWNLOAD ---
+function downloadImage(){
+    const img = document.querySelector("#preview img");
+    if(!img) return;
+    const a = document.createElement("a");
+    a.href = img.src;
+    a.download = "jobo-pro-ai.jpg";
+    a.click();
+}
+
+// --- PAY MODAL ---
+function openPayModal(){document.getElementById("payModal").style.display="flex";}
+function closePayModal(){document.getElementById("payModal").style.display="none";}
+function pay(amount){
+    credits += amount;
+    document.getElementById("credits").innerText = credits+" kredit";
+    closePayModal();
+}
+</script>
+
+</body>
+</html>
